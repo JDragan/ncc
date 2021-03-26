@@ -1,0 +1,26 @@
+# integer assign
+iOne: int = 1
+iTwo: int = 2
+iTri: int = 3
+
+# BinOp assign
+iAdd: int = 4+10+iOne+iTwo+iTri+20
+
+# print
+print "Hello Multiverse!", iOne, iTwo, iTri, iAdd
+print "Hello Multiverse!", 1, 2, 3, iAdd
+print iOne, iTwo, iTri
+print iTwo
+print iTri
+
+iRes: int = iAdd+400+600
+print "Result is:", iRes
+
+# boolean expression:
+bOne: int = iOne == iTwo
+bTwo: int = iTwo == iTri
+bTri: int = iTri == 3
+print "iBool1:", bOne, "iBool2:", bTwo, "iBool3:", bTri
+
+# condition
+if iTri == 3: print "True. iTri is", iTri
