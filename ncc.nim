@@ -1,3 +1,6 @@
+## ncc is new language with python like syntax
+## transpiles to ANSI C
+
 import strutils
 import os
 
