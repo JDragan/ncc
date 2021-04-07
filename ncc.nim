@@ -5,31 +5,36 @@ import strutils
 import os
 
 type
-  NodeKind = enum   # the different node types
-    nkInt,          # a leaf with an integer value
-    nkFloat,        # a leaf with a float value
-    nkString,       # a leaf with a string value
+  NodeKind = enum # the different node types
+    nkInt,        # a leaf with an integer value
+    nkFloat,      # a leaf with a float value
+    nkString,     # a leaf with a string value
     nkBinOp,
     nkBoolOp,
-    nkAdd,          # an addition
-    nkSub,          # a subtraction
-    nkIf,           # an if statement
+    nkAdd,        # an addition
+    nkSub,        # a subtraction
+    nkIf,         # an if statement
     nkComment,
     nkPrintStmt,
     nkAssign,
     nkEndline
   Node = ref object
-    case kind: NodeKind  # the ``kind`` field is the discriminator
+    case kind: NodeKind # the ``kind`` field is the discriminator
     of nkInt, nkFloat:
-      intName, val: string
-    of nkString: strVal: string
+      numLiteral: string
+    of nkString: strLiteral: string
     of nkAdd, nkSub, nkBinOp, nkBoolOp:
       leftOp, rightOp: Node
       operand: string
-    of nkIf: condition, thenPart, elsePart: Node
+    of nkIf:
+      condition: Node
+      elsePart: Node
+      thenPart: seq[Node]
     of nkComment: comment: string
     of nkPrintStmt: params: seq[Node]
-    of nkAssign: target, value: Node
+    of nkAssign:
+      identifier: string
+      value: Node
     of nkEndline: isEndline: bool
 
 const ENDL = ";" & "\n"
@@ -39,19 +44,21 @@ const OPERANDS_BOOL = ["=="]
 const KEYWORDS = ["int", "float"]
 # const KEYWORDSOP = [nkInt, nkFloat]
 
-proc newAssignNode(t, v: Node = nil): Node = Node(kind: nkAssign, target: t, value: v)
+proc newAssignNode(identifier: string = "", value: Node = nil): Node = Node(kind: nkAssign)
 
-proc newAddNode(left, right: Node = nil): Node = Node(kind: nkAdd, leftOp: left, rightOp: right)
+proc newAddNode(left, right: Node = nil): Node = Node(kind: nkAdd)
 
-proc newBoolOpNode(left, right: Node = nil): Node = Node(kind: nkBoolOp, leftOp: left, rightOp: right)
+proc newBoolOpNode(left, right: Node = nil): Node = Node(kind: nkBoolOp)
 
-proc newIfNode(cond, body: Node = nil): Node = Node(kind: nkIf, condition: cond, thenPart: body)
+proc newIfNode(cond, body: Node = nil): Node =
+  Node(kind: nkIf, condition: cond, thenPart: newSeq[Node](0))
 
-proc newIntNode(val: string = ""): Node = Node(kind: nkInt, val: val)
+proc newIntNode(val: string = ""): Node = Node(kind: nkInt, numLiteral: val)
 
-proc newStringNode(val: string = ""): Node = Node(kind: nkString, strVal: val)
+proc newStringNode(val: string = ""): Node = Node(kind: nkString,
+    strLiteral: val)
 
-proc newEndline(): Node = Node(kind: nkEndline, isEndline: true)
+# proc newEndline(): Node = Node(kind: nkEndline, isEndline: true)
 
 proc isStringLiteral(line: string): bool =
   if line.strip.startsWith(QUOTE) and line.strip.endsWith(QUOTE): true
@@ -63,8 +70,7 @@ proc isBinOp(str: string): bool =
   return false
 
 proc isBoolOp(str: string): bool =
-  var a = str.split(" ")
-  for c in a:
+  for c in str.split(" "):
     if c in OPERANDS_BOOL: return true
   return false
 
@@ -76,15 +82,13 @@ proc isStringDigit(str: string): bool =
   return true
 
 proc isComment(line: string): bool =
-  if line.strip.startsWith("#"): true
-  else: false
+  line.strip.startsWith("#")
 
 proc parseComment(i: string): string =
   return i.split("# ")[1].strip()
 
 proc isPrintStmt(line: string): bool =
-  if line.strip.startsWith("print "): true
-  else: false
+  line.strip.startsWith("print ")
 
 proc parsePrintStmt(i: string): seq[Node] =
   var paramSeq: seq[Node]
@@ -109,6 +113,7 @@ proc buildBinOp(binopExpression: string): Node =
   let arr = binopExpression.split("+")
   var mainBinop = newAddNode()
   # binop parse tree
+  # echo "arr: ", arr
   for idx, v in arr:
     var tempnode = newAddNode()
 
@@ -144,22 +149,25 @@ proc buildBoolOp(binopExpression: string): Node =
   return mainBinop
 
 proc isIfStmt(line: string): bool =
-  if line.strip.startsWith("if "): true
-  else: false
+  line.strip.startsWith("if ")
 
-proc buildIfStmt(line: string): Node =
+proc buildIfStmt(line: string, body: var string, pasredbody: seq[Node]): Node =
 
   let cond = line[3..line.find(":") - 1]
-  let body = line[line.find(":") + 1 .. line.high].strip()
 
-  var ifNode = newIfNode()
+  if body == "":
+    body = line[line.find(":") + 1 .. line.high].strip()
 
+  var node = newIfNode()
   if cond.isBoolOp():
-    ifNode.condition = buildBoolOp(cond)
+    node.condition = buildBoolOp(cond)
   if body.isPrintStmt():
-    ifNode.thenPart = Node(kind: nkPrintStmt, params: parsePrintStmt(body))
+    node.thenPart = @[Node(kind: nkPrintStmt, params: parsePrintStmt(body))]
+  else:
+    node.thenPart = pasredbody
+    # result.thenPart = buildAST(body)
 
-  return ifNode
+  return node
 
 
 proc quot(i: string): string = QUOTE & i & QUOTE
@@ -185,24 +193,25 @@ proc walkAST(node: Node) =
       walkAST(node.rightOp)
 
     of nkint:
-      rawccode.add(node.val)
+      rawccode.add(node.numLiteral)
 
     of nkAssign:
       rawccode.add("int ")
-      walkAST(node.target)
+      rawccode.add(node.identifier)
       rawccode.add(" = ")
       walkAST(node.value)
+      rawccode.add(ENDL)
 
     of nkString:
-      rawccode.add(node.strVal)
+      rawccode.add(node.strLiteral)
 
     of nkPrintStmt:
       rawccode.add("printf")
-      var paramArr:    seq[string]
+      var paramArr: seq[string]
       var paramFormat: seq[string]
       for p in node.params:
-        paramArr.add(p.strVal)
-        if isStringLiteral(p.strVal):
+        paramArr.add(p.strLiteral)
+        if isStringLiteral(p.strLiteral):
           paramFormat.add("%s")
         else:
           paramFormat.add("%d")
@@ -210,34 +219,42 @@ proc walkAST(node: Node) =
       let f = quot(join(paramFormat, " ") & "\\n")
       let p = join(paramArr, ", ")
       rawccode.add(bracketize(f & ", " & p))
+      rawccode.add(ENDL)
 
     of nkEndline:
-      rawccode.add(ENDL)
+      rawccode.add("")
 
     of nkIf:
       rawccode.add("if (")
       walkAST(node.condition)
-      rawccode.add(") ")
-      walkAST(node.thenPart)
+      rawccode.add(") {\n")
+      for n in node.thenPart: walkAST(n)
+      rawccode.add("}\n")
 
     of nkFloat, nkBinOp, nkSub:
       echo node.kind, " not implemented yet"
 
 
-proc buildAST(input: FILE): seq[Node] =
+proc buildAST*(input: string): seq[Node] =
 
   var astnodes: seq[Node]
+  var lines = input.split("\n")
 
-  for line in lines input:
+  var idx = 0
+  while idx < lines.len - 1:
+
+    var line = lines[idx]
+    inc idx
+    echo idx, ": ", line
 
     if line.isComment():
-      astnodes.add(Node(kind: nkComment, comment: parseComment(line) ))
+      astnodes.add(Node(kind: nkComment, comment: parseComment(line)))
       continue
 
     if line.isPrintStmt():
       let printnode = Node(kind: nkPrintStmt, params: parsePrintStmt(line))
       astnodes.add(printnode)
-      astnodes.add(newEndline())
+      # astnodes.add(newEndline())
       continue
 
     if line.isAssignStmt():
@@ -248,26 +265,32 @@ proc buildAST(input: FILE): seq[Node] =
 
       var anode = newAssignNode()
 
-      anode.target = newStringNode(leftname)
+      anode.identifier = leftname
 
       if right.isStringDigit(): anode.value = newIntNode(right)
-      elif right.isBinOp():     anode.value = buildBinOp(right)
-      elif right.isBoolOp():    anode.value = buildBoolOp(right)
+      elif right.isBinOp(): anode.value = buildBinOp(right)
+      elif right.isBoolOp(): anode.value = buildBoolOp(right)
       else: anode.value = newStringNode(right)
 
       astnodes.add(anode)
-      astnodes.add(newEndline())
       continue
 
     if line.isIfStmt():
-      astnodes.add(buildIfStmt(line))
-      astnodes.add(newEndline())
+      var ifblock: string = ""
+      while lines[idx].startsWith("  "):
+        ifblock.add(lines[idx] & "\n")
+        inc idx
+
+      astnodes.add(buildIfStmt(line, ifblock, ifblock.buildAST()))
       continue
 
   return astnodes
 
+import json
 
 proc emitCode(nodes: seq[Node]): string =
+
+  discard execShellCmd "echo '" & $(%nodes) & "' > dump_ast.json"
 
   for n in nodes:
     n.walkAST()
@@ -285,13 +308,13 @@ int main() {
 """
 
 let input = "test.ncc"
-let myFile = open(input)
+let myFile = readFile(input)
 
 var ccode = header & emitCode(buildAST(myFile))
 
 echo "rawccode:\n", rawccode
 
-let output_c   = input.changeFileExt("c")
+let output_c = input.changeFileExt("c")
 let output_exe = output_c.changeFileExt("exe")
 
 writeFile(output_c, ccode)

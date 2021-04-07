@@ -24,3 +24,10 @@ print "iBool1:", bOne, "iBool2:", bTwo, "iBool3:", bTri
 
 # condition
 if iTri == 3: print "True. iTri is", iTri
+
+if iTri == 3:
+  some: int = 50
+  print 4
+  print 5
+  print 6
+  print some
