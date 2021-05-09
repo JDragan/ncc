@@ -28,8 +28,8 @@ type
             operand: string
         of nkIf:
             condition: Node
-            elsePart: Node
             thenPart: seq[Node]
+            elsePart: Node
         of nkComment: comment: string
         of nkPrintStmt: params: seq[Node]
         of nkAssign:
@@ -51,7 +51,7 @@ proc newAddNode(left, right: Node = nil): Node = Node(kind: nkAdd)
 proc newBoolOpNode(left, right: Node = nil): Node = Node(kind: nkBoolOp)
 
 proc newIfNode(cond, body: Node = nil): Node =
-    Node(kind: nkIf, condition: cond, thenPart: newSeq[Node](0))
+    Node(kind: nkIf, condition: cond, elsePart: body, thenPart: newSeq[Node](0))
 
 proc newIntNode(val: string = ""): Node = Node(kind: nkInt, numLiteral: val)
 
@@ -59,6 +59,13 @@ proc newStringNode(val: string = ""): Node = Node(kind: nkString,
     strLiteral: val)
 
 # proc newEndline(): Node = Node(kind: nkEndline, isEndline: true)
+
+proc count_spaces(ln: string): int =
+    var numspaces = 0
+    for c in ln:
+        if c == ' ': inc numspaces
+        else: break
+    return numspaces
 
 proc isStringLiteral(line: string): bool =
     if line.strip.startsWith(QUOTE) and line.strip.endsWith(QUOTE): true
@@ -130,7 +137,8 @@ proc buildBinOp(binopExpression: string): Node =
     return mainBinop
 
 proc buildBoolOp(binopExpression: string): Node =
-    let arr = binopExpression.split(" == ")
+    var arr = binopExpression.split(" == ")
+    if arr[1].strip().endsWith(":"): arr[1] = arr[1].split(":")[0]
     var mainBinop = newBoolOpNode()
     # binop parse tree
     for idx, v in arr:
@@ -234,7 +242,15 @@ proc walkAST(node: Node) =
         of nkFloat, nkBinOp, nkSub:
             echo node.kind, " not implemented yet"
 
+proc tabPos(tabsz: int32 = 0): string =
+    var spaces = ""
+    for space in 0..tabsz-1:
+        spaces.add(" ")
+    return spaces
 
+
+
+var numspaces: int32 = 0 # space tracker
 proc buildAST*(input: string): seq[Node] =
 
     var astnodes: seq[Node]
@@ -245,7 +261,7 @@ proc buildAST*(input: string): seq[Node] =
 
         var line = lines[idx]
         inc idx
-        echo idx, ": ", line
+        # echo idx, ": ", line
 
         if line.isComment():
             astnodes.add(Node(kind: nkComment, comment: parseComment(line)))
@@ -276,12 +292,22 @@ proc buildAST*(input: string): seq[Node] =
             continue
 
         if line.isIfStmt():
-            var ifblock: string = ""
-            while lines[idx].startsWith("  "):
-                ifblock.add(lines[idx] & "\n")
-                inc idx
 
-            astnodes.add(buildIfStmt(line, ifblock, ifblock.buildAST()))
+            var node = newIfNode()
+            var cond = line.split("if ")[^1]
+            node.condition = buildBoolOp(cond)
+
+            var thenPart: string = ""
+            numspaces += 2
+
+            while lines[idx].count_spaces >= tabPos(numspaces).len:
+                thenPart.add(lines[idx] & "\n")
+                inc idx
+            node.thenPart = thenPart.buildAST()
+
+            astnodes.add(node)
+            numspaces -= 2
+
             continue
 
     return astnodes
@@ -318,8 +344,8 @@ let output_c = input.changeFileExt("c")
 let output_exe = output_c.changeFileExt("exe")
 
 writeFile(output_c, ccode)
-echo "Compiling: " & input & " -> " & output_c
+echo "Compiling: " & input    & " -> "   & output_c
 echo "Compiling: " & output_c & " ---> " & output_exe
-discard execShellCmd("tcc " & output_c & " -o " & output_exe)
+discard execShellCmd("gcc " & output_c & " -o " & output_exe)
 discard execShellCmd("strip " & output_exe)
 echo "DONE"
