@@ -13,6 +13,10 @@ print iOne, iTwo, iTri
 print iTwo
 print iTri
 
+# reassign
+iTwo = 42
+
+# addition
 iRes: int = iAdd+400+600
 print "Result is:", iRes
 
@@ -26,6 +30,7 @@ print "iBool1:", bOne, "iBool2:", bTwo, "iBool3:", bTri
 if iTri == 3:
   print "True. iTri is", iTri
 
+# nested condition
 if iOne == 1:
   print "Hello from block", iOne
   if iTwo == 2:

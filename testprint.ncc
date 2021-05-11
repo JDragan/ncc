@@ -1,0 +1,7 @@
+iOne: int = 1
+iTwo: int = 2
+iTri: int = 3
+
+iTwo = 42
+
+print "Hello Multiverse!", 1, iTwo, iTri

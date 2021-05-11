@@ -6,6 +6,7 @@ import os
 
 type
     NodeKind = enum # the different node types
+        nkIdent
         nkInt,      # a leaf with an integer value
         nkFloat,    # a leaf with a float value
         nkString,   # a leaf with a string value
@@ -20,6 +21,7 @@ type
         nkEndline
     Node = ref object
         case kind: NodeKind # the ``kind`` field is the discriminator
+        of nkIdent: identName: string
         of nkInt, nkFloat:
             numLiteral: string
         of nkString: strLiteral: string
@@ -35,7 +37,10 @@ type
         of nkAssign:
             identifier: string
             value: Node
+            isInit: bool
         of nkEndline: isEndline: bool
+
+var Globals: seq[string]
 
 const ENDL = ";" & "\n"
 const QUOTE = "\""
@@ -44,7 +49,12 @@ const OPERANDS_BOOL = ["=="]
 const KEYWORDS = ["int", "float"]
 # const KEYWORDSOP = [nkInt, nkFloat]
 
-proc newAssignNode(identifier: string = "", value: Node = nil): Node = Node(kind: nkAssign)
+proc newAssignNode(identifier: string = "", value: Node = nil): Node =
+    var isInit = false
+    if Globals.find(identifier) < 0:
+        isInit = true
+        Globals.add identifier
+    Node(kind: nkAssign, identifier: identifier, isInit: isInit)
 
 proc newAddNode(left, right: Node = nil): Node = Node(kind: nkAdd)
 
@@ -58,7 +68,7 @@ proc newIntNode(val: string = ""): Node = Node(kind: nkInt, numLiteral: val)
 proc newStringNode(val: string = ""): Node = Node(kind: nkString,
     strLiteral: val)
 
-# proc newEndline(): Node = Node(kind: nkEndline, isEndline: true)
+proc newIdentNode(val: string = ""): Node = Node(kind: nkIdent, identName: val)
 
 proc count_spaces(ln: string): int =
     var numspaces = 0
@@ -103,18 +113,31 @@ proc parsePrintStmt(i: string): seq[Node] =
     if ", " in lit:
         var printParams = lit.split(", ")
         for p in printParams:
-            var n = newStringNode(p)
-            paramSeq.add(n)
+            if p.isStringLiteral():
+                paramSeq.add newStringNode(p)
+            elif p.isStringDigit():
+                paramSeq.add newIntNode(p)
+            else:
+                paramSeq.add newIdentNode(p)
+
     else:
-        var n = newStringNode(lit)
-        paramSeq.add(n)
+        if lit.isStringLiteral():
+            paramSeq.add(newStringNode(lit))
+        elif lit.isStringDigit():
+            paramSeq.add(newIntNode(lit))
+        else:
+            paramSeq.add(newIdentNode(lit))
+            
+
     return paramSeq
 
-proc isAssignStmt(i: string): bool =
-    let spl = i.split
-    for s in spl:
-        if s.strip in KEYWORDS: return true
-    return false
+proc isAssignStmt(line: string): int =
+    # echo i.split
+    if line.strip.startsWith("if"): return 0
+    for c in line.split:
+        if c.strip in KEYWORDS: return 1
+        if c.strip in Globals : return 2
+    return 0
 
 proc buildBinOp(binopExpression: string): Node =
     let arr = binopExpression.split("+")
@@ -159,25 +182,6 @@ proc buildBoolOp(binopExpression: string): Node =
 proc isIfStmt(line: string): bool =
     line.strip.startsWith("if ")
 
-proc buildIfStmt(line: string, body: var string, pasredbody: seq[Node]): Node =
-
-    let cond = line[3..line.find(":") - 1]
-
-    if body == "":
-        body = line[line.find(":") + 1 .. line.high].strip()
-
-    var node = newIfNode()
-    if cond.isBoolOp():
-        node.condition = buildBoolOp(cond)
-    if body.isPrintStmt():
-        node.thenPart = @[Node(kind: nkPrintStmt, params: parsePrintStmt(body))]
-    else:
-        node.thenPart = pasredbody
-        # result.thenPart = buildAST(body)
-
-    return node
-
-
 proc quot(i: string): string = QUOTE & i & QUOTE
 proc bracketize(i: string): string = "(" & i & ")"
 
@@ -203,8 +207,12 @@ proc walkAST(node: Node) =
         of nkint:
             rawccode.add(node.numLiteral)
 
+        of nkIdent:
+            rawccode.add(node.identName)
+
         of nkAssign:
-            rawccode.add("int ")
+            if node.isInit:
+                rawccode.add("int ")
             rawccode.add(node.identifier)
             rawccode.add(" = ")
             walkAST(node.value)
@@ -218,9 +226,16 @@ proc walkAST(node: Node) =
             var paramArr: seq[string]
             var paramFormat: seq[string]
             for p in node.params:
-                paramArr.add(p.strLiteral)
-                if isStringLiteral(p.strLiteral):
+                # if isStringLiteral(p.strLiteral):
+                if p.kind == nkString:
+                    paramArr.add(p.strLiteral)
                     paramFormat.add("%s")
+                elif p.kind == nkInt:
+                    paramArr.add(p.numLiteral)
+                    paramFormat.add("%d")
+                elif p.kind == nkIdent:
+                    paramArr.add(p.identName)
+                    paramFormat.add("%d")
                 else:
                     paramFormat.add("%d")
 
@@ -261,7 +276,10 @@ proc buildAST*(input: string): seq[Node] =
 
         var line = lines[idx]
         inc idx
-        # echo idx, ": ", line
+        echo idx, ": ", line
+
+        if line.strip == "":
+            continue
 
         if line.isComment():
             astnodes.add(Node(kind: nkComment, comment: parseComment(line)))
@@ -273,13 +291,29 @@ proc buildAST*(input: string): seq[Node] =
             # astnodes.add(newEndline())
             continue
 
-        if line.isAssignStmt():
-            let lit = line.split(" = ")
+        let assignType = line.isAssignStmt()
+
+        if assignType > 0:
+
+            var splitter = ""
+
+            if assignType == 1: splitter = " = "
+            if assignType == 2: splitter = " = "
+
+            let lit = line.split(splitter)
+
+            echo lit, " ", splitter
+
+            # echo Globals
+            if lit.len < 2:
+                echo "Error parsing : ", line, " ---"
+                return
+
             let left = lit[0].strip()
             let right = lit[1].strip()
             let leftname = left.split()[0].strip().split(":")[0]
 
-            var anode = newAssignNode()
+            var anode = newAssignNode(leftname)
 
             anode.identifier = leftname
 
@@ -333,19 +367,25 @@ typedef enum { false, true } bool;
 int main() {
 """
 
-let input = "test.ncc"
-let myFile = readFile(input)
+proc main() =
+    let input = "test.ncc"
+    let myFile = readFile(input)
 
-var ccode = header & emitCode(buildAST(myFile))
+    var ccode = header & emitCode(buildAST(myFile))
 
-echo "rawccode:\n", rawccode
+    echo "rawccode:\n", rawccode
 
-let output_c = input.changeFileExt("c")
-let output_exe = output_c.changeFileExt("exe")
+    echo "Globals; ", Globals
 
-writeFile(output_c, ccode)
-echo "Compiling: " & input    & " -> "   & output_c
-echo "Compiling: " & output_c & " ---> " & output_exe
-discard execShellCmd("gcc " & output_c & " -o " & output_exe)
-discard execShellCmd("strip " & output_exe)
-echo "DONE"
+    let output_c = input.changeFileExt("c")
+    let output_exe = output_c.changeFileExt("exe")
+
+    writeFile(output_c, ccode)
+    echo "Compiling: " & input    & " -> "   & output_c
+    echo "Compiling: " & output_c & " ---> " & output_exe
+    discard execShellCmd("gcc " & output_c & " -o " & output_exe)
+    discard execShellCmd("strip " & output_exe)
+    echo "DONE"
+
+if isMainModule:
+    main()
