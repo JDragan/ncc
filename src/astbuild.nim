@@ -141,7 +141,7 @@ proc buildAST*(input: string): seq[Node] =
 
         var line = lines[idx]
         inc idx
-        echo idx, ": ", line
+        # echo idx, ": ", line
 
         if line.strip == "":
             continue
@@ -165,7 +165,7 @@ proc buildAST*(input: string): seq[Node] =
 
             let lit = line.split(splitter)
 
-            echo lit, " ", splitter
+            # echo lit, " ", splitter
 
             # echo Globals
             if lit.len < 2:
@@ -180,10 +180,10 @@ proc buildAST*(input: string): seq[Node] =
 
             anode.identifier = leftname
 
-            if right.isStringDigit(): anode.value = newIntNode(right)
-            elif right.isBinOp(): anode.value = buildBinOp(right)
-            elif right.isBoolOp(): anode.value = buildBoolOp(right)
-            else: anode.value = newStringNode(right)
+            if right.isStringDigit(): anode.assigned = newIntNode(right)
+            elif right.isBinOp(): anode.assigned = buildBinOp(right)
+            elif right.isBoolOp(): anode.assigned = buildBoolOp(right)
+            else: anode.assigned = newStringNode(right)
 
             astnodes.add(anode)
             continue

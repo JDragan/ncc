@@ -13,38 +13,37 @@ type
         nkIf,       # an if statement
         nkComment,
         nkPrintStmt,
-        nkAssign,
-        nkEndline
+        nkAssign
     Node* = ref object
-        case kind*: NodeKind # the ``kind`` field is the discriminator
-        of nkIdent: identName*: string
-        of nkInt, nkFloat:
-            numLiteral*: string
-        of nkString: strLiteral*: string
-        of nkAdd, nkSub, nkBinOp, nkBoolOp:
-            leftOp*, rightOp*: Node
-            operand*: string
-        of nkIf:
-            condition*: Node
-            thenPart*: seq[Node]
-            elsePart*: Node
-        of nkComment: comment*: string
-        of nkPrintStmt: params*: seq[Node]
-        of nkAssign:
-            identifier*: string
-            value*: Node
-            isInit*: bool
-        of nkEndline: isEndline*: bool
-
+        name*:   string
+        value*:  string
         parsed*: string
+        case kind*: NodeKind # the ``kind`` field is the discriminator
+            of nkComment: nil
+            of nkIdent: nil
+            of nkInt, nkFloat: nil
+            of nkString: nil
+            of nkAdd, nkSub, nkBinOp, nkBoolOp:
+                leftOp*, rightOp*: Node
+                operand*: string
+            of nkIf:
+                condition*: Node
+                thenPart*: seq[Node]
+                elsePart*: Node
+            of nkPrintStmt: params*: seq[Node]
+            of nkAssign:
+                identifier*: string
+                assigned*: Node
+                isInit*: bool
+
 
 var Globals*: seq[string]
 
 func newCommentNode*(comment_str: string = ""): Node =
     var parsed = "// " & comment_str
-    Node(kind: nkComment, comment: comment_str, parsed: parsed)
+    Node(kind: nkComment, value: comment_str, parsed: parsed)
 
-proc newAssignNode*(identifier: string = "", value: Node = nil): Node =
+proc newAssignNode*(identifier: string = "", assigned: Node = nil): Node =
     var isInit = false
     if Globals.find(identifier) < 0:
         isInit = true
@@ -58,9 +57,8 @@ proc newBoolOpNode*(left, right: Node = nil): Node = Node(kind: nkBoolOp)
 proc newIfNode*(cond, body: Node = nil): Node =
     Node(kind: nkIf, condition: cond, elsePart: body, thenPart: newSeq[Node](0))
 
-proc newIntNode*(val: string = ""): Node = Node(kind: nkInt, numLiteral: val)
+proc newIntNode*(val: string = ""): Node = Node(kind: nkInt, value: val)
 
-proc newStringNode*(val: string = ""): Node = Node(kind: nkString,
-    strLiteral: val)
+proc newStringNode*(val: string = ""): Node = Node(kind: nkString, value: val)
 
-proc newIdentNode*(val: string = ""): Node = Node(kind: nkIdent, identName: val)
+proc newIdentNode*(val: string = ""): Node = Node(kind: nkIdent, name: val)

@@ -31,34 +31,34 @@ proc walkAST(node: Node) =
         rawccode.add(" == ")
         walkAST(node.rightOp)
 
-    of nkint: rawccode.add(node.numLiteral)
+    of nkint: rawccode.add(node.value)
 
-    of nkIdent: rawccode.add(node.identName)
+    of nkIdent: rawccode.add(node.name)
 
     of nkAssign:
         if node.isInit:
             rawccode.add("int ")
         rawccode.add(node.identifier)
         rawccode.add(" = ")
-        walkAST(node.value)
+        walkAST(node.assigned)
         rawccode.add(ENDL)
 
-    of nkString: rawccode.add(node.strLiteral)
+    of nkString: rawccode.add(node.value)
 
     of nkPrintStmt:
         rawccode.add("printf")
         var paramArr: seq[string]
         var paramFormat: seq[string]
         for p in node.params:
-            # if isStringLiteral(p.strLiteral):
+            # if isStringLiteral(p.value):
             if p.kind == nkString:
-                paramArr.add(p.strLiteral)
+                paramArr.add(p.value)
                 paramFormat.add("%s")
             elif p.kind == nkInt:
-                paramArr.add(p.numLiteral)
+                paramArr.add(p.value)
                 paramFormat.add("%d")
             elif p.kind == nkIdent:
-                paramArr.add(p.identName)
+                paramArr.add(p.name)
                 paramFormat.add("%d")
             else:
                 paramFormat.add("%d")
@@ -67,9 +67,6 @@ proc walkAST(node: Node) =
         let p = join(paramArr, ", ")
         rawccode.add(bracketize(f & ", " & p))
         rawccode.add(ENDL)
-
-    of nkEndline:
-        rawccode.add("")
 
     of nkIf:
         rawccode.add("if (")
@@ -114,7 +111,7 @@ proc main() =
 
     var ccode = header & emitCode(buildAST(myFile))
 
-    echo "rawccode:\n", rawccode
+    # echo "rawccode:\n", rawccode
 
     let output_c = input.changeFileExt("c")
     let output_exe = output_c.changeFileExt("exe")
