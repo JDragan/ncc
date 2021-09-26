@@ -5,7 +5,10 @@ import strutils
 const ENDL = ";" & "\n"
 const QUOTE = "\""
 func quot(i: string): string = QUOTE & i & QUOTE
-proc bracketize(i: string): string = "(" & i & ")"
+func bracketize(i: string): string = "(" & i & ")"
+
+var rawccode: string
+proc walkAST(node: Node)
 
 func emitPrint*(node: Node): string =
     result.add("printf")
@@ -30,15 +33,14 @@ func emitPrint*(node: Node): string =
     result.add bracketize(f & ", " & p)
     result.add ENDL
 
-template emitIf(node: Node, result: var string) =
-    result.add("if (")
+proc emitIf(node: Node) =
+    rawccode.add("if (")
     walkAST(node.condition)
-    result.add(") {\n")
+    rawccode.add(") {\n")
     for n in node.thenPart: walkAST(n)
-    result.add("}\n")
+    rawccode.add("}\n")
 
 
-var rawccode = ""
 proc walkAST(node: Node) =
 
     if node.isNil: return
@@ -71,10 +73,8 @@ proc walkAST(node: Node) =
         of nkString: rawccode.add(node.value)
 
         of nkPrintStmt: rawccode.add emitPrint(node)
-            
 
-        of nkIf:
-            emitIf(node, rawccode)
+        of nkIf: emitIf(node)
 
         of nkFloat, nkBinOp, nkSub:
             echo node.kind, " not implemented yet"
