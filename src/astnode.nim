@@ -14,7 +14,8 @@ type
         nkComment,
         nkPrintStmt,
         nkAssign
-    Node* = ref object
+
+    Node* = ref object of RootObj
         name*:   string
         value*:  string
         parsed*: string
@@ -28,7 +29,7 @@ type
                 operand*: string
             of nkIf:
                 condition*: Node
-                thenPart*: seq[Node]
+                thenPart*: Tree
                 elsePart*: Node
             of nkPrintStmt: params*: seq[Node]
             of nkAssign:
@@ -36,11 +37,13 @@ type
                 assigned*: Node
                 isInit*: bool
 
+    Tree* = object of RootObj
+        nodes*: seq[Node]
 
 var Globals*: seq[string]
 
 func newCommentNode*(comment_str: string = ""): Node =
-    var parsed = "// " & comment_str
+    let parsed = "// " & comment_str
     Node(kind: nkComment, value: comment_str, parsed: parsed)
 
 proc newAssignNode*(identifier: string = "", assigned: Node = nil): Node =
@@ -50,15 +53,15 @@ proc newAssignNode*(identifier: string = "", assigned: Node = nil): Node =
         Globals.add identifier
     Node(kind: nkAssign, identifier: identifier, isInit: isInit)
 
-proc newAddNode*(left, right: Node = nil): Node = Node(kind: nkAdd)
+func newAddNode*(left, right: Node = nil): Node = Node(kind: nkAdd)
 
-proc newBoolOpNode*(left, right: Node = nil): Node = Node(kind: nkBoolOp)
+func newBoolOpNode*(left, right: Node = nil): Node = Node(kind: nkBoolOp)
 
-proc newIfNode*(cond, body: Node = nil): Node =
-    Node(kind: nkIf, condition: cond, elsePart: body, thenPart: newSeq[Node](0))
+func newIfNode*(cond, body: Node = nil): Node =
+    Node(kind: nkIf, condition: cond, elsePart: body, thenPart: Tree())
 
-proc newIntNode*(val: string = ""): Node = Node(kind: nkInt, value: val)
+func newIntNode*(val: string = ""): Node = Node(kind: nkInt, value: val)
 
-proc newStringNode*(val: string = ""): Node = Node(kind: nkString, value: val)
+func newStringNode*(val: string = ""): Node = Node(kind: nkString, value: val)
 
-proc newIdentNode*(val: string = ""): Node = Node(kind: nkIdent, name: val)
+func newIdentNode*(val: string = ""): Node = Node(kind: nkIdent, name: val)

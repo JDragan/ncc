@@ -8,14 +8,14 @@ func quot(i: string): string = QUOTE & i & QUOTE
 func bracketize(i: string): string = "(" & i & ")"
 
 var rawccode: string
-proc walkAST(node: Node)
+proc walkNode(node: Node)
 
 func emitPrint*(node: Node): string =
     result.add("printf")
     var paramArr: seq[string]
     var paramFormat: seq[string]
+    
     for p in node.params:
-        # if isStringLiteral(p.value):
         if p.kind == nkString:
             paramArr.add(p.value)
             paramFormat.add("%s")
@@ -35,13 +35,13 @@ func emitPrint*(node: Node): string =
 
 proc emitIf(node: Node) =
     rawccode.add("if (")
-    walkAST(node.condition)
+    walkNode(node.condition)
     rawccode.add(") {\n")
-    for n in node.thenPart: walkAST(n)
+    for n in node.thenPart.nodes: walkNode(n)
     rawccode.add("}\n")
 
 
-proc walkAST(node: Node) =
+proc walkNode(node: Node) =
 
     if node.isNil: return
 
@@ -49,14 +49,14 @@ proc walkAST(node: Node) =
         of nkComment: rawccode.add node.parsed & "\n"
 
         of nkAdd:
-            walkAST(node.leftOp)
+            walkNode(node.leftOp)
             rawccode.add(" + ")
-            walkAST(node.rightOp)
+            walkNode(node.rightOp)
 
         of nkBoolOp:
-            walkAST(node.leftOp)
+            walkNode(node.leftOp)
             rawccode.add(" == ")
-            walkAST(node.rightOp)
+            walkNode(node.rightOp)
 
         of nkint: rawccode.add(node.value)
 
@@ -67,7 +67,7 @@ proc walkAST(node: Node) =
                 rawccode.add("int ")
             rawccode.add(node.identifier)
             rawccode.add(" = ")
-            walkAST(node.assigned)
+            walkNode(node.assigned)
             rawccode.add(ENDL)
 
         of nkString: rawccode.add(node.value)
@@ -83,12 +83,12 @@ proc walkAST(node: Node) =
 import os
 import json
 
-proc emitCode*(nodes: seq[Node]): string =
+proc treeWalker*(tree: Tree): string =
 
-    discard execShellCmd "echo '" & $(%nodes) & "' > dump_ast.json"
+    discard execShellCmd "echo '" & $(%tree.nodes) & "' > dump_ast.json"
 
-    for n in nodes:
-        n.walkAST()
+    for n in tree.nodes:
+        n.walkNode()
 
     rawccode.add("}\n")
     rawccode

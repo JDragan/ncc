@@ -19,9 +19,7 @@ proc main() =
     let input = "tests/test.ncc"
     let myFile = readFile(input)
 
-    var ccode = header & emitCode(buildAST(myFile))
-
-    # echo "rawccode:\n", rawccode
+    var ccode = header & treeWalker(buildAST(myFile))
 
     let output_c = input.changeFileExt("c")
     let output_exe = output_c.changeFileExt("exe")

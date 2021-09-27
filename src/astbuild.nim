@@ -6,10 +6,9 @@ import astnode
 
 const ENDL* = ";" & "\n"
 const QUOTE* = "\""
-const OPERANDS = ['+', '-']
-const OPERANDS_BOOL = ["=="]
+const OPERANDS_BIN = ['+', '-']
+const OPERANDS_BOOL = ["<", "==", ">"]
 const KEYWORDS = ["int", "float"]
-# const KEYWORDSOP = [nkInt, nkFloat]
 
 proc count_spaces(ln: string): int =
     var numspaces = 0
@@ -30,7 +29,7 @@ proc isStringLiteral(line: string): bool =
 
 proc isBinOp(str: string): bool =
     for c in str:
-        if c in OPERANDS: return true
+        if c in OPERANDS_BIN: return true
     return false
 
 proc isBoolOp(str: string): bool =
@@ -93,8 +92,7 @@ proc isIfStmt(line: string): bool =
 proc buildBinOp(binopExpression: string): Node =
     let arr = binopExpression.split("+")
     var mainBinop = newAddNode()
-    # binop parse tree
-    # echo "arr: ", arr
+
     for idx, v in arr:
         var tempnode = newAddNode()
 
@@ -131,9 +129,9 @@ proc buildBoolOp(binopExpression: string): Node =
     return mainBinop
 
 var numspaces: int32 = 0 # space tracker
-proc buildAST*(input: string): seq[Node] =
+proc buildAST*(input: string): Tree =
 
-    var astnodes: seq[Node]
+    var tree: Tree
     var lines = input.split("\n")
 
     var idx = 0
@@ -147,11 +145,11 @@ proc buildAST*(input: string): seq[Node] =
             continue
 
         if line.isComment():
-            astnodes.add newCommentNode(parseComment(line))
+            tree.nodes.add newCommentNode(parseComment(line))
             continue
 
         if line.isPrintStmt():
-            astnodes.add Node(kind: nkPrintStmt, params: parsePrintStmt(line))
+            tree.nodes.add Node(kind: nkPrintStmt, params: parsePrintStmt(line))
             continue
 
         let assignType = line.isAssignStmt()
@@ -165,9 +163,6 @@ proc buildAST*(input: string): seq[Node] =
 
             let lit = line.split(splitter)
 
-            # echo lit, " ", splitter
-
-            # echo Globals
             if lit.len < 2:
                 echo "Error parsing : ", line, " ---"
                 return
@@ -185,7 +180,7 @@ proc buildAST*(input: string): seq[Node] =
             elif right.isBoolOp(): anode.assigned = buildBoolOp(right)
             else: anode.assigned = newStringNode(right)
 
-            astnodes.add(anode)
+            tree.nodes.add(anode)
             continue
 
         if line.isIfStmt():
@@ -202,9 +197,9 @@ proc buildAST*(input: string): seq[Node] =
                 inc idx
             node.thenPart = thenPart.buildAST()
 
-            astnodes.add(node)
+            tree.nodes.add(node)
             numspaces -= 2
 
             continue
 
-    return astnodes
+    return tree
