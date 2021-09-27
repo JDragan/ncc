@@ -16,7 +16,7 @@ int main() {
 
 proc main() =
     
-    let input = "tests/test.ncc"
+    let input = "tests/condition.ncc"
     let myFile = readFile(input)
 
     var ccode = header & treeWalker(buildAST(myFile))
@@ -29,6 +29,7 @@ proc main() =
     echo "Compiling: " & output_c & " ---> " & output_exe
     discard execShellCmd("gcc " & output_c & " -o " & output_exe)
     discard execShellCmd("strip " & output_exe)
+    discard execShellCmd("./" & output_exe)
     echo "DONE"
 
 if isMainModule:

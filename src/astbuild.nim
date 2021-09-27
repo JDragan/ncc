@@ -109,7 +109,16 @@ proc buildBinOp(binopExpression: string): Node =
     return mainBinop
 
 proc buildBoolOp(binopExpression: string): Node =
-    var arr = binopExpression.split(" == ")
+
+    var bolloperand: string
+    var arr: seq[string]
+
+    for boolop in OPERANDS_BOOL:
+        if binopExpression.split(boolop).len > 1:
+            bolloperand = boolop
+            arr = binopExpression.split(" "&bolloperand&" ")
+            break
+
     if arr[1].strip().endsWith(":"): arr[1] = arr[1].split(":")[0]
     var mainBinop = newBoolOpNode()
     # binop parse tree
@@ -119,6 +128,7 @@ proc buildBoolOp(binopExpression: string): Node =
         if idx == 0: continue
         if idx == 1:
             tempnode.leftOp = newIntNode(arr[0])
+            tempnode.operand = bolloperand
             tempnode.rightOp = newIntNode(arr[1])
         else:
             tempnode.leftOp = mainBinop

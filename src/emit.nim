@@ -55,7 +55,7 @@ proc walkNode(node: Node) =
 
         of nkBoolOp:
             walkNode(node.leftOp)
-            rawccode.add(" == ")
+            rawccode.add node.operand
             walkNode(node.rightOp)
 
         of nkint: rawccode.add(node.value)
