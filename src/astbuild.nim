@@ -7,7 +7,7 @@ import astnode
 const ENDL* = ";" & "\n"
 const QUOTE* = "\""
 const OPERANDS_BIN = ['+', '-']
-const OPERANDS_BOOL = ["<", "==", ">"]
+const OPERANDS_BOOL = ["<", "==", ">", "!="]
 const KEYWORDS = ["int", "float"]
 
 proc count_spaces(ln: string): int =
